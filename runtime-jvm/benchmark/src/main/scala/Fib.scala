@@ -12,16 +12,12 @@ object Fib extends App {
 
   val builtins : String => Rt = {
     case s@"-" => new Arity2(Builtin(s)) with NF {
-      def apply(x1: D, x1b: Rt, x2: D, x2b: Rt, r: R) = {
-        r.boxed = null
-        r.unboxed = x2 - x1
-      }
+      def apply(x1: D, x1b: Rt, x2: D, x2b: Rt) =
+        new Result(unboxed = x2 - x1)
     }
     case s@"+" => new Arity2(Builtin(s)) with NF {
-      def apply(x1: D, x1b: Rt, x2: D, x2b: Rt, r: R) = {
-        r.boxed = null
-        r.unboxed = x2 + x1
-      }
+      def apply(x1: D, x1b: Rt, x2: D, x2b: Rt) =
+        new Result(unboxed = x2 + x1)
     }
   }
 
@@ -46,15 +42,15 @@ object Fib extends App {
 
   val manuallyCompiledFib : Rt = new Arity1(Builtin("fib-manual-compile")) {
     def bind(env: Map[Name,Rt]) = ()
-    def apply(x1: D, x1b: Rt, r: R) = {
-      if (x1 == 0.0) r.unboxed = 0.0
+    def apply(x1: D, x1b: Rt) = {
+      if (x1 == 0.0) new Result(unboxed = 0.0)
       else {
-        val x12 = eval(minus1, x1, null, r)
-        if (r.unboxed == 0.0) r.unboxed = 1.0
+        val diffResult = eval(minus1, x1, null)
+        if (diffResult.unboxed == 0.0) new Result(unboxed = 1.0)
         else {
-          val r1 = { eval(minus1, x1, null, r); apply(r.unboxed, r.boxed, r); r.unboxed }
-          val r2 = { eval(minus2, x1, null, r); apply(r.unboxed, r.boxed, r); r.unboxed }
-          plus(r1, null, r2, null, r)
+          val r1 = { val r = eval(minus1, x1, null); apply(r.unboxed, r.boxed).unboxed }
+          val r2 = { val r = eval(minus2, x1, null); apply(r.unboxed, r.boxed).unboxed }
+          plus(r1, null, r2, null)
         }
       }
     }
@@ -63,15 +59,15 @@ object Fib extends App {
 
   val manuallyCompiledFib2 : Rt = new Arity2(Builtin("fib-manual-compile")) {
     def bind(env: Map[Name,Rt]) = ()
-    def apply(self: D, selfb: Rt, x1: D, x1b: Rt, r: R) = {
-      if (x1 == 0.0) r.unboxed = 0.0
+    def apply(self: D, selfb: Rt, x1: D, x1b: Rt) = {
+      if (x1 == 0.0) new Result(unboxed = 0.0)
       else {
-        val x12 = eval(minus1, x1, null, r)
-        if (r.unboxed == 0.0) r.unboxed = 1.0
+        val diffResult = eval(minus1, x1, null)
+        if (diffResult.unboxed == 0.0) new Result(unboxed = 1.0)
         else {
-          val r1 = { eval(minus1, x1, null, r); selfb(0.0, selfb, r.unboxed, r.boxed, r); r.unboxed }
-          val r2 = { eval(minus2, x1, null, r); selfb(0.0, selfb, r.unboxed, r.boxed, r); r.unboxed }
-          plus(r1, null, r2, null, r)
+          val r1 = { val r = eval(minus1, x1, null); selfb(0.0, selfb, r.unboxed, r.boxed).unboxed }
+          val r2 = { val r = eval(minus2, x1, null); selfb(0.0, selfb, r.unboxed, r.boxed).unboxed }
+          plus(r1, null, r2, null)
         }
       }
     }
@@ -85,18 +81,15 @@ object Fib extends App {
 
   QuickProfile.suite(
     QuickProfile.timeit("manually-compiled-unison (2)", 0.02) {
-      val r = Result()
-      manuallyCompiledFib2(0.0, manuallyCompiledFib2, N, null, r)
+      val r = manuallyCompiledFib2(0.0, manuallyCompiledFib2, N, null)
       (r.unboxed + math.random).toLong
     },
     QuickProfile.timeit("manually-compiled-unison", 0.02) {
-      val r = Result()
-      manuallyCompiledFib(N, null, r)
+      val r = manuallyCompiledFib(N, null)
       (r.unboxed + math.random).toLong
     },
     QuickProfile.timeit("unison", 0.02) {
-      val r = Result()
-      compiledFib(r)
+      val r = compiledFib()
       (r.unboxed + math.random).toLong
     },
     QuickProfile.timeit("scala", 0.08) {
