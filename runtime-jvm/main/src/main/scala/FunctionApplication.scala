@@ -10,7 +10,7 @@ object FunctionApplication {
     if (isTail) staticTailCall(fn, args, decompile)
     else staticNonTailCall(fn, args, decompile)
 
-  def staticTailCall(fn: Rt, args: Array[Rt], decompile: Term): Rt = {
+  def staticTailCall(fn: Rt, args: Array[Rt], decompile: Term): Rt = ??? /*{
     val arity = args.map(_.arity).max
     val fn2 = fn; val args2 = args
     trait A0 { self: Rt => def bind(env: Map[Name,Rt]) = { fn2.bind(env); args2.foreach(_.bind(env)) }}
@@ -322,7 +322,7 @@ object FunctionApplication {
           }}
       }
     }
-  }
+  } todo */
 
   def staticNonTailCall(fn: Rt, args: Array[Rt], decompile: Term): Rt = {
     val arity = args.map(_.arity).max

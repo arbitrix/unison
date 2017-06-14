@@ -84,19 +84,19 @@ object Fib extends App {
   val compiledFib = compile(builtins)(fib)
 
   QuickProfile.suite(
-    QuickProfile.timeit("unison", 0.04) {
-      val r = Result()
-      compiledFib(r)
-      (r.unboxed + math.random).toLong
-    },
-    QuickProfile.timeit("manually-compiled-unison (2)", 0.04) {
+    QuickProfile.timeit("manually-compiled-unison (2)", 0.02) {
       val r = Result()
       manuallyCompiledFib2(0.0, manuallyCompiledFib2, N, null, r)
       (r.unboxed + math.random).toLong
     },
-    QuickProfile.timeit("manually-compiled-unison", 0.04) {
+    QuickProfile.timeit("manually-compiled-unison", 0.02) {
       val r = Result()
       manuallyCompiledFib(N, null, r)
+      (r.unboxed + math.random).toLong
+    },
+    QuickProfile.timeit("unison", 0.02) {
+      val r = Result()
+      compiledFib(r)
       (r.unboxed + math.random).toLong
     },
     QuickProfile.timeit("scala", 0.08) {

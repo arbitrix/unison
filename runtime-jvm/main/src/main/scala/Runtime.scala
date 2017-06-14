@@ -2,7 +2,6 @@ package org.unisonweb
 
 import Runtime._
 import Term.{Name,Term}
-import annotation.switch
 
 abstract class Runtime {
 
@@ -60,24 +59,24 @@ abstract class Runtime {
   def bind(env: Map[Name, Rt]): Unit
 
   def decompile: Term
-  /* Two cases: 
+  /* Two cases:
        1. The current term, t, represented by this Rt has no free variables.
-          In this case, decompile is just `t`. 
-          Ex: (x -> x) decompiles as is. 
+          In this case, decompile is just `t`.
+          Ex: (x -> x) decompiles as is.
        2. The current term, t, DOES have free variables, v1, v2, ...
-          In this case, decompile needs to obtain the decompiled form of v1, v2, 
-          etc, and the substitute these into `t`. 
+          In this case, decompile needs to obtain the decompiled form of v1, v2,
+          etc, and the substitute these into `t`.
           Ex: `(x -> x + k)`, need to obtain decompiled form of `k`, and subst
             this into the body of the lambda.
           BUT there's a problem - the decompiled form of a variable may refer
             to itself, and that needs to be handled appropriately.
           Ex 2 (silly example): `let rec loop = loop; (x -> x + loop)`
-            What should happen when decompiling `x -> x + loop` ? 
+            What should happen when decompiling `x -> x + loop` ?
             What we don't want - infinite expansion
-            What we do want is probably: 
+            What we do want is probably:
               `x -> x + (let rec loop = loop; loop)`
               OR maybe `let rec loop = loop; (x -> x + loop)`
-          
+
           Ex 3: `let rec ping = pong; pong = ping; (x -> x + pong)`
             x -> x + (let rec ping = pong; pong = ping; pong) OR
             let rec ping = pong; pong = ping; (x -> x + pong)
@@ -127,13 +126,13 @@ object Runtime {
     else freeVars.view.map(fv => bound.indexOf(fv)).max + 1
 
   case class Result(var unboxed: D = 0.0,
-                    var boxed: Rt = null,
-                    var tailCall: Rt = null,
-                    var tailArg1: D = 0.0,
-                    var tailArg1b: Rt = null,
-                    var tailArg2: D = 0.0,
-                    var tailArg2b: Rt = null,
-                    var tailArgs: Array[Slot] = null) {
+                    var boxed: Rt = null) {
+                    //var tailCall: Rt = null,
+                    //var tailArg1: D = 0.0,
+                    //var tailArg1b: Rt = null,
+                    //var tailArg2: D = 0.0,
+                    //var tailArg2b: Rt = null,
+                    //var tailArgs: Array[Slot] = null) {
     final def toRuntime =
       if (boxed eq null) compileNum(unboxed)
       else boxed
@@ -147,7 +146,7 @@ object Runtime {
   case class Yielded(effect: Rt, continuation: Rt) extends Throwable
 
   /** Constant indicating current term is in tail position, should be compiled accordingly. */
-  val IsTail = true
+  val IsTail = false
 
   /** Constant indicating current term not in tail position, should be compiled accordingly. */
   val IsNotTail = false
@@ -166,7 +165,7 @@ object Runtime {
     eval(rt, r)
     decompileSlot(r.unboxed, r.boxed)
   }
-  
+
   private def unbindRecursiveVars(e: TermC, recursiveVars: Map[Name,TermC]): TermC =
     e.reannotate { case (free,bound) => (free, bound.filterNot(recursiveVars.contains(_))) }
 
@@ -182,6 +181,7 @@ object Runtime {
       val compileAsFree = recursiveVars.contains(name) ||
                           boundByCurrentLambda.map(vs => !vs.contains(name)).getOrElse(false)
       compileVar(name, e, compileAsFree)
+    case Compiled(rt) => rt
     case If0(cond,if0,ifNot0) =>
       compileIf0(builtins, e, boundByCurrentLambda, recursiveVars, isTail, cond, if0, ifNot0)
     case Lam(names, body) =>
@@ -770,80 +770,80 @@ object Runtime {
     }
   }
 
-  @inline def tailCallLoop(r: R): Unit = {
-    while (!(r.tailCall eq null)) {
-      val fn = r.tailCall
-      r.tailCall = null
-      (fn.arity : @switch) match {
-        case 1 => fn(r.tailArg1, r.tailArg1b, r)
-        case 2 => fn(r.tailArg1, r.tailArg1b, r.tailArg2, r.tailArg2b, r)
-        case 3 => fn(r.tailArg1, r.tailArg1b, r.tailArg2, r.tailArg2b,
-                             r.tailArgs(0).unboxed, r.tailArgs(0).boxed, r)
-        case 4 => fn(r.tailArg1, r.tailArg1b, r.tailArg2, r.tailArg2b,
-                             r.tailArgs(0).unboxed, r.tailArgs(0).boxed,
-                             r.tailArgs(1).unboxed, r.tailArgs(1).boxed, r)
-        case n => fn(Array(Slot(r.tailArg1, r.tailArg1b), Slot(r.tailArg2, r.tailArg2b)) ++
-                             r.tailArgs, r)
-      }
-    }
-  }
+  //@inline def tailCallLoop(r: R): Unit = {
+  //  while (!(r.tailCall eq null)) {
+  //    val fn = r.tailCall
+  //    r.tailCall = null
+  //    (fn.arity : @annotation.switch) match {
+  //      case 1 => fn(r.tailArg1, r.tailArg1b, r)
+  //      case 2 => fn(r.tailArg1, r.tailArg1b, r.tailArg2, r.tailArg2b, r)
+  //      case 3 => fn(r.tailArg1, r.tailArg1b, r.tailArg2, r.tailArg2b,
+  //                           r.tailArgs(0).unboxed, r.tailArgs(0).boxed, r)
+  //      case 4 => fn(r.tailArg1, r.tailArg1b, r.tailArg2, r.tailArg2b,
+  //                           r.tailArgs(0).unboxed, r.tailArgs(0).boxed,
+  //                           r.tailArgs(1).unboxed, r.tailArgs(1).boxed, r)
+  //      case n => fn(Array(Slot(r.tailArg1, r.tailArg1b), Slot(r.tailArg2, r.tailArg2b)) ++
+  //                           r.tailArgs, r)
+  //    }
+  //  }
+  //}
 
   @inline
   def eval(rt: Rt, r: R): Unit = {
-    r.tailCall = null; r.tailArgs = null
+    // r.tailCall = null; r.tailArgs = null
     rt(r)
-    tailCallLoop(r)
+    // tailCallLoop(r)
   }
   @inline
   def eval(rt: Rt, x1: D, x2: Rt, r: R): Unit = {
     rt(x1,x2,r)
-    tailCallLoop(r)
+    // tailCallLoop(r)
   }
   @inline
   def eval(rt: Rt, x1: D, x2: Rt, x3: D, x4: Rt, r: R): Unit = {
     rt(x1,x2,x3,x4,r)
-    tailCallLoop(r)
+    // tailCallLoop(r)
   }
   @inline
   def eval(rt: Rt, x1: D, x2: Rt, x3: D, x4: Rt, x5: D, x6: Rt, r: R): Unit = {
     rt(x1,x2,x3,x4,x5,x6,r)
-    tailCallLoop(r)
+    // tailCallLoop(r)
   }
   @inline
   def eval(rt: Rt, x1: D, x2: Rt, x3: D, x4: Rt, x5: D, x6: Rt, x7: D, x8: Rt, r: R): Unit = {
     rt(x1,x2,x3,x4,x5,x6,x7,x8,r)
-    tailCallLoop(r)
+    // tailCallLoop(r)
   }
   @inline
   def evalN(rt: Rt, args: Array[Slot], r: R): Unit = {
     rt(args,r)
-    tailCallLoop(r)
+    // tailCallLoop(r)
   }
-  @inline
-  def tailCall(fn: Rt, x1: D, x1b: Rt, r: R): Unit = {
-    r.tailCall = fn; r.tailArg1 = x1; r.tailArg1b = x1b; r.tailArgs = null
-  }
-  @inline
-  def tailCall(fn: Rt, x1: D, x1b: Rt, x2: D, x2b: Rt, r: R): Unit = {
-    r.tailCall = fn; r.tailArg1 = x1; r.tailArg1b = x1b; r.tailArg2 = x2; r.tailArg2b = x2b
-    r.tailArgs = null
-  }
-  @inline
-  def tailCall(fn: Rt, x1: D, x1b: Rt, x2: D, x2b: Rt, x3: D, x3b: Rt, r: R): Unit = {
-    r.tailCall = fn; r.tailArg1 = x1; r.tailArg1b = x1b; r.tailArg2 = x2; r.tailArg2b = x2b
-    r.tailArgs = Array(Slot(x3,x3b))
-  }
-  @inline
-  def tailCall(fn: Rt, x1: D, x1b: Rt, x2: D, x2b: Rt, x3: D, x3b: Rt, x4: D, x4b: Rt, r: R): Unit = {
-    r.tailCall = fn; r.tailArg1 = x1; r.tailArg1b = x1b; r.tailArg2 = x2; r.tailArg2b = x2b
-    r.tailArgs = Array(Slot(x3,x3b),Slot(x4,x4b))
-  }
-  @inline
-  def tailCall(fn: Rt, args: Array[Slot], r: R): Unit = {
-    r.tailCall = fn; r.tailArg1 = args(0).unboxed; r.tailArg1b = args(0).boxed
-    r.tailArg2 = args(1).unboxed; r.tailArg2b = args(1).boxed
-    r.tailArgs = args.drop(2)
-  }
+  //@inline
+  //def tailCall(fn: Rt, x1: D, x1b: Rt, r: R): Unit = {
+  //  r.tailCall = fn; r.tailArg1 = x1; r.tailArg1b = x1b; r.tailArgs = null
+  //}
+  //@inline
+  //def tailCall(fn: Rt, x1: D, x1b: Rt, x2: D, x2b: Rt, r: R): Unit = {
+  //  r.tailCall = fn; r.tailArg1 = x1; r.tailArg1b = x1b; r.tailArg2 = x2; r.tailArg2b = x2b
+  //  r.tailArgs = null
+  //}
+  //@inline
+  //def tailCall(fn: Rt, x1: D, x1b: Rt, x2: D, x2b: Rt, x3: D, x3b: Rt, r: R): Unit = {
+  //  r.tailCall = fn; r.tailArg1 = x1; r.tailArg1b = x1b; r.tailArg2 = x2; r.tailArg2b = x2b
+  //  r.tailArgs = Array(Slot(x3,x3b))
+  //}
+  //@inline
+  //def tailCall(fn: Rt, x1: D, x1b: Rt, x2: D, x2b: Rt, x3: D, x3b: Rt, x4: D, x4b: Rt, r: R): Unit = {
+  //  r.tailCall = fn; r.tailArg1 = x1; r.tailArg1b = x1b; r.tailArg2 = x2; r.tailArg2b = x2b
+  //  r.tailArgs = Array(Slot(x3,x3b),Slot(x4,x4b))
+  //}
+  //@inline
+  //def tailCall(fn: Rt, args: Array[Slot], r: R): Unit = {
+  //  r.tailCall = fn; r.tailArg1 = args(0).unboxed; r.tailArg1b = args(0).boxed
+  //  r.tailArg2 = args(1).unboxed; r.tailArg2b = args(1).boxed
+  //  r.tailArgs = args.drop(2)
+  //}
 
   def lookupVar(i: Int, name: Name, e: Term): Rt = i match {
     case 0 => new Arity1(e) {
